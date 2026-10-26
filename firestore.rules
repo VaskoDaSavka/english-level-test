@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Replace TEACHER_UID with UID from Authentication > Users after first teacher sign-in.
+    function isTeacher() {
+      return request.auth != null && request.auth.uid == 'TEACHER_UID';
+    }
+    match /submissions/{submissionId} {
+      allow create: if request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'anonymous'
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'studentCode','group','ownerUid','answers','writing','objectiveScore',
+          'sectionScores','writingScores','speakingScore','graded','createdAt','testVersion'
+        ])
+        && request.resource.data.studentCode is string
+        && request.resource.data.studentCode.size() > 0
+        && request.resource.data.studentCode.size() <= 50
+        && request.resource.data.group is string
+        && request.resource.data.group.size() <= 30
+        && request.resource.data.writing is list
+        && request.resource.data.writing.size() == 2
+        && request.resource.data.writing[0] is string
+        && request.resource.data.writing[1] is string
+        && request.resource.data.writing[0].size() <= 10000
+        && request.resource.data.writing[1].size() <= 10000
+        && request.resource.data.objectiveScore is int
+        && request.resource.data.objectiveScore >= 0
+        && request.resource.data.objectiveScore <= 26
+        && request.resource.data.graded == false
+        && request.resource.data.writingScores == [null, null]
+        && request.resource.data.speakingScore == null
+        && request.resource.data.createdAt == request.time;
+      allow read, delete: if isTeacher();
+      allow update: if isTeacher()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['writingScores','speakingScore','graded'])
+        && request.resource.data.writingScores is list
+        && request.resource.data.writingScores.size() == 2
+        && request.resource.data.writingScores[0] is int
+        && request.resource.data.writingScores[1] is int
+        && request.resource.data.writingScores[0] >= 0
+        && request.resource.data.writingScores[0] <= 5
+        && request.resource.data.writingScores[1] >= 0
+        && request.resource.data.writingScores[1] <= 5
+        && request.resource.data.speakingScore is int
+        && request.resource.data.speakingScore >= 0
+        && request.resource.data.speakingScore <= 12
+        && request.resource.data.graded == true;
+    }
+  }
+}
